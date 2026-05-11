@@ -1,0 +1,12 @@
+[project]
+name = "cse493s-spring26-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "datasets>=4.8.5",
+    "tokenizers>=0.22.2",
+    "tqdm>=4.67.3",
+    "transformers>=5.8.0",
+]
