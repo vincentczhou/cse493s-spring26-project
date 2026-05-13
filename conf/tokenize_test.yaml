@@ -1,0 +1,12 @@
+defaults:
+  - data: default
+  - tokenizer: default
+  - _self_
+
+eval:
+  output_dir: _test_streams
+  overwrite: false
+
+hydra:
+  run:
+    dir: outputs/tokenize_test/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
