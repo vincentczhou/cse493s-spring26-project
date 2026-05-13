@@ -1,5 +1,5 @@
 defaults:
-  - data: data
+  - data: default
   - _self_
 
 hydra:

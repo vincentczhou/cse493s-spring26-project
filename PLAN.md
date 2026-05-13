@@ -10,11 +10,11 @@ The three metrics, each plotted vs tokenizer training corpus size, are:
 
 1. **Compression ratio** (Erdogan Fig 2/3)
 2. **k-gram entropy** H_1, ..., H_5 and entropy rate (Erdogan Fig 4)
-3. **Capacity utilization** η = H_1 / log_2(K) (Erdogan Fig 8)
+3. **Capacity utilization** η = H_1 / log_2(T) (Erdogan Fig 8)
 
 ## 2. Scope
 
-- **Vocabulary size:** `K = 16000` only (matches Erdogan Figs 4 and 8).
+- **Vocabulary size:** `T = 16000` only (matches Erdogan Figs 4 and 8).
 - **Domain:** English only, from C4 (`allenai/c4`, `en` split). No code, no multilingual.
 - **Tokenizer family:** SuperBPE with five values of the transition point `t`. The endpoints recover standard BPE and a pretok-free BPE, so no separate BPE implementation is needed.
 
@@ -43,7 +43,7 @@ The `t` values mirror Liu et al.'s ratios (`t/T ∈ {0.9, 0.8, 0.4}` from their 
 **Pipeline (matches Erdogan where compatible):**
 - Normalizer: NFKC
 - Pre-tokenizer: whitespace-based during phase 1; *disabled* during phase 2 (`t < T`)
-- Special tokens: `<pad>`, `<s>`, `</s>`, `<unk>`
+- Special tokens: **none.** Erdogan §IV calls for "a consistent set of special tokens across tokenizers (e.g., `<pad>`, `<unk>`)", but special tokens don't appear in the test stream and so have no measurable effect on any of the three metrics (compression ratio, k-gram entropy, capacity utilization). Dropping them lets us use SuperBPE's `train_or_extend_tokenizer` verbatim. The only practical consequence is that BPE doesn't reserve vocab slots for them — same for all 5 tokenizers, so the relative comparison is unaffected.
 - Byte-level fallback: yes (consistent with both papers' practice)
 
 Deviation from Erdogan: SuperBPE phase 2 by construction operates without the whitespace pretokenizer. This is the point of the ablation, not a bug.
@@ -72,7 +72,7 @@ Unigram entropy:
 H_1 = -Σ_t p̂(t) log_2 p̂(t)
 ```
 
-For `k = 2, ..., 5`: count all length-k tuples in `T`; derive empirical conditional `p̂(t_i | t_{i-k+1}^{i-1})`; then
+For `k = 2, ..., 5`: count all length-k tuples in the token sequence; derive empirical conditional `p̂(t_i | t_{i-k+1}^{i-1})`; then
 
 ```
 H_k = (1/n) Σ_{i=k}^{n} -p̂(t_i | t_{i-k+1}^{i-1}) log_2 p̂(t_i | t_{i-k+1}^{i-1})
@@ -85,13 +85,13 @@ Also report the per-character entropy rate `H_k × (tokens / char)` (Erdogan Fig
 ### 5.3 Capacity utilization (Erdogan §VI, eq. 1)
 
 ```
-η(T; D) = H_1(T; D) / log_2(K)
+η(T; D) = H_1(T; D) / log_2(T)
 ```
 
-with `K = |V| = 16000`. Also compute the Rényi-2 (collision) variant:
+with `T = 16000`. Also compute the Rényi-2 (collision) variant:
 
 ```
-η_2(T; D) = H_2_Rényi(T; D) / log_2(K)
+η_2(T; D) = H_2_Rényi(T; D) / log_2(T)
 ```
 
 where `H_2_Rényi = -log_2 Σ_t p̂(t)^2`.

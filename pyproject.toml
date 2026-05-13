@@ -21,3 +21,9 @@ dev = [
 # Requires: git submodule update --init --recursive (pulls in superbpe/tokenizers_superbpe)
 # Requires: Rust compiler (the fork has Rust bindings, same as vanilla tokenizers)
 tokenizers = { path = "superbpe/tokenizers_superbpe/bindings/python", editable = true }
+
+[tool.pyright]
+# The fork's editable install uses a .pth file that Pyright/Pylance doesn't
+# process, so point it at the source dir explicitly. Picks up the .pyi stubs
+# in py_src/tokenizers/ so VSCode resolves tokenizers.models / .trainers / etc.
+extraPaths = ["superbpe/tokenizers_superbpe/bindings/python/py_src"]
