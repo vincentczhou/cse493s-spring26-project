@@ -59,3 +59,33 @@ def kgram_entropy(token_ids: np.ndarray, k: int) -> float:
 
     h_k = (1 / c_ct.sum()) * np.sum(c_ct * np.log2(c_c / c_ct))
     return float(h_k)
+
+
+def capacity_utilization(token_ids: np.ndarray, vocab_size: int) -> dict[str, float]:
+    """Capacity utilization metrics (PLAN.md §5.3, Erdogan eq. 1).
+
+    Both are unigram-distribution entropies divided by log_2(|V|); values in
+    [0, 1] measure how "evenly" the tokenizer uses its vocabulary.
+
+        eta   = H_1        / log_2(|V|)     (Shannon — uniform → 1.0)
+        eta_2 = H_2^Rényi  / log_2(|V|)     (collision — places weight on the head)
+
+    Rényi entropy of order α (α > 0, α ≠ 1):
+        H_α(p) = (1 / (1 - α)) · log_2 Σ_t p̂(t)^α
+    At α=2 this collapses to the collision entropy -log_2 Σ p̂(t)².
+
+    Note: H_2^Rényi is the Rényi-α=2 entropy of the *unigram* distribution,
+    not the bigram conditional entropy returned by kgram_entropy(ids, 2).
+    """
+    h1 = kgram_entropy(token_ids, 1)  # Shannon unigram entropy
+
+    _, counts = np.unique(token_ids, return_counts=True)
+    p = counts / len(token_ids)
+    alpha = 2.0
+    h_renyi = float((1 / (1 - alpha)) * np.log2(np.sum(p**alpha)))
+
+    log2_vocab = float(np.log2(vocab_size))
+    return {
+        "eta": h1 / log2_vocab,
+        "eta_2": h_renyi / log2_vocab,
+    }
