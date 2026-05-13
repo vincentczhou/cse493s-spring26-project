@@ -1,6 +1,6 @@
 defaults:
   - data: default
-  - train: default
+  - tokenizer: default
   - _self_
 
 hydra:

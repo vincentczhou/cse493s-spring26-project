@@ -1,6 +1,5 @@
-# Default training config for train/train_tokenizer.py.
-# Override specific fields by creating sibling group configs (e.g. conf/train/t_zero.yaml)
-# and selecting them via `uv run train/train_tokenizer.py train=t_zero`.
+# Tokenizer definition shared by train/train_tokenizer.py and eval/tokenize_test.py.
+# Select a variant via: train=tokenizer:t_6400, or uv run ... tokenizer=t_6400
 
 # Transition point. Special cases:
 #   t == vocab_size      -> only Phase 1 runs (standard BPE w/ whitespace pretok)
@@ -9,11 +8,11 @@
 t: 16000
 vocab_size: 16000  # final vocab size T (PLAN.md §4)
 
-# Training corpus.
+# Training corpus (used by train_tokenizer.py; ignored by tokenize_test.py).
 input_file: ${data.output_dir}/${data.train_file}
 train_chars: 1e8  # Unicode codepoints (prefix of input_file)
 
 output_dir: _tokenizers
-output_file: t${train.t}_n1e8.json
+output_file: t${tokenizer.t}_n1e8.json
 
 overwrite: false

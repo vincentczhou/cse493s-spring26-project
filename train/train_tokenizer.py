@@ -83,7 +83,7 @@ def _train_or_extend_tokenizer(
 
 @hydra.main(version_base=None, config_path="../conf", config_name="train_tokenizer")
 def main(cfg: DictConfig) -> None:
-    c = cfg.train
+    c = cfg.tokenizer
     # Transition point
     t = int(c.t)
     # Vocabulary Size
