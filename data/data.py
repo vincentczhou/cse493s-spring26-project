@@ -8,12 +8,15 @@ Docs shorter than `min_doc_chars` are dropped. No NFKC or whitespace
 collapsing happens here — both belong to the tokenizer pipeline.
 """
 
+import logging
 from pathlib import Path
 
 import hydra
 from datasets import load_dataset
 from omegaconf import DictConfig
 from tqdm import tqdm
+
+log = logging.getLogger(__name__)
 
 
 def build_stream(
@@ -81,16 +84,16 @@ def write_stream(
     overwrite: bool,
 ) -> None:
     if out_path.exists() and not overwrite:
-        print(f"[skip] {out_path} exists (overwrite=true to regenerate)")
+        log.info(f"[skip] {out_path} exists (overwrite=true to regenerate)")
         return
-    print(f"[stream] {path}/{name} split={split} -> {out_path}")
+    log.info(f"[stream] {path}/{name} split={split} -> {out_path}")
     ds = load_dataset(path, name, split=split, streaming=True)
     text = build_stream(
         iter(ds), target_chars, min_doc_chars, separator, desc=out_path.name
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(text, encoding="utf-8")
-    print(f"[write] {len(text):,} chars -> {out_path}")
+    log.info(f"[write] {len(text):,} chars -> {out_path}")
 
 
 @hydra.main(version_base=None, config_path="../conf", config_name="data")
