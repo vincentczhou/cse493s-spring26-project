@@ -144,10 +144,14 @@ plot/
 
 ## 8. Dependencies
 
-- `tokenizers` (HF) — for the standard BPE engine
+- **`alisawuffles/tokenizers-superbpe`** — a fork of `huggingface/tokenizers` that adds SuperBPE support. **Conflicts with vanilla `tokenizers`** (same package name), so vanilla `tokenizers` must not be installed. Included as a Rust-built editable install via the SuperBPE submodule. Requires a Rust compiler to build.
+- **`PythonNut/superbpe`** — the SuperBPE training repo, added as a git submodule. The tokenizers fork lives inside it as a nested submodule (`tokenizers_superbpe/`). Clone with `git clone --recurse-submodules` or run `git submodule update --init --recursive` after cloning.
 - `datasets` (HF) — for C4 streaming
-- The official SuperBPE repo from `https://superbpe.github.io/` as the training engine for `t < T`
-- `numpy`, `matplotlib` for metrics and plots
+- `hydra-core`, `omegaconf` — config management
+- `numpy`, `matplotlib` — metrics and plots
+- `tqdm` — progress bars
+
+**uv setup:** override the `tokenizers` dependency to point at the fork via `[tool.uv.sources]` (path = `superbpe/tokenizers_superbpe/bindings/python`, editable). The fork exposes the same `tokenizers` package API so all import statements stay unchanged.
 
 The existing `scripts/train_paper_smallest.py` and `scripts/compute_bytes_per_token.py` will be deleted or moved to `scratch/` — they don't match this plan (wrong pre-tokenizer, no training-size sweep).
 
