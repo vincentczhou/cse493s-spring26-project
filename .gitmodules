@@ -1,0 +1,3 @@
+[submodule "superbpe"]
+	path = superbpe
+	url = https://github.com/PythonNut/superbpe.git

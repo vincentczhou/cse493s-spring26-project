@@ -1,0 +1,8 @@
+defaults:
+  - data: default
+  - train: default
+  - _self_
+
+hydra:
+  run:
+    dir: outputs/train_tokenizer/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}

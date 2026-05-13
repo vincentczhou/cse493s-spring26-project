@@ -6,7 +6,24 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "datasets>=4.8.5",
-    "tokenizers>=0.22.2",
-    "tqdm>=4.67.3",
-    "transformers>=5.8.0",
+    "hydra-core>=1.3.0",
+    "tokenizers",  # provided by the SuperBPE fork via [tool.uv.sources] below
+    "tqdm>=4.67.1",
 ]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.0",
+]
+
+[tool.uv.sources]
+# Use the SuperBPE fork of HF tokenizers — conflicts with vanilla tokenizers.
+# Requires: git submodule update --init --recursive (pulls in superbpe/tokenizers_superbpe)
+# Requires: Rust compiler (the fork has Rust bindings, same as vanilla tokenizers)
+tokenizers = { path = "superbpe/tokenizers_superbpe/bindings/python", editable = true }
+
+[tool.pyright]
+# The fork's editable install uses a .pth file that Pyright/Pylance doesn't
+# process, so point it at the source dir explicitly. Picks up the .pyi stubs
+# in py_src/tokenizers/ so VSCode resolves tokenizers.models / .trainers / etc.
+extraPaths = ["superbpe/tokenizers_superbpe/bindings/python/py_src"]
