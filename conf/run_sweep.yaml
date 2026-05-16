@@ -4,8 +4,17 @@ sweep:
   n_exponents: [3, 4, 5, 6, 7, 8]
 
   results_file: results/results.jsonl
-  # Parallel cells. Each cell uses all cores internally, so keep low.
-  max_workers: 2
+  overwrite: false  # if true, delete results.jsonl before starting
+
+  # Phase 1: train tokenizers in parallel. Each subprocess is CPU-heavy via rayon,
+  # so train_workers × rayon_num_threads should ≤ total CPU cores to avoid contention.
+  # Defaults assume a 16-core machine.
+  train_workers: 4
+  rayon_num_threads: 4
+
+  # Phase 2: tokenize test slice + compute metrics in parallel. These steps are
+  # single-threaded so we can run more in parallel without over-subscription.
+  eval_workers: 16
 
 hydra:
   run:

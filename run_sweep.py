@@ -6,14 +6,24 @@ For each cell:
   3. Compute metrics  (in-process: eval.metrics functions)
   4. Append row to results.jsonl
 
-Re-running the sweep is idempotent — cells already in results.jsonl are skipped.
-The train/tokenize subprocesses also skip if their output files exist
-(overwrite=false), so partial sweeps resume cleanly.
+This is done in two phases:
+  Phase 1: train all tokenizers in parallel. Each training subprocess is CPU-heavy
+           via the Rust BPE trainer's rayon parallelism. To avoid over-subscription,
+           we cap rayon per subprocess via RAYON_NUM_THREADS and bound the number
+           of parallel subprocesses by sweep.train_workers.
+  Phase 2: tokenize the test slice + compute metrics in parallel. These steps are
+           single-threaded, so we can run more cells concurrently here.
+           After each cell, append one row to results.jsonl.
+
+Re-running the sweep is idempotent — cells already in results.jsonl are skipped in
+phase 2 (phase 1 will rely on tokenizer.overwrite=false). The train/tokenize subprocesses skip when their output files exist
+(overwrite=false). Set sweep.overwrite=true to start fresh. Partial sweeps resume cleanly.
 """
 
 import itertools
 import json
 import logging
+import os
 import subprocess
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -59,17 +69,22 @@ def resolve_cell(name: str, root: Path) -> Cell:
     )
 
 
-def run_cell(
-    cell: Cell, root: Path, results_path: Path, write_lock: threading.Lock
-) -> dict:
-    """Train, tokenize, and compute metrics for one cell."""
+def train_cell(cell: Cell, root: Path, env: dict) -> None:
+    """Phase 1: train one tokenizer (subprocess skips if cached)."""
     # 1. Train tokenizer (subprocess skips if output exists & overwrite=false).
     subprocess.run(
         ["uv", "run", "train/train_tokenizer.py", f"tokenizer={cell.name}"],
         cwd=root,
         check=True,
         capture_output=True,
+        env=env,
     )
+
+
+def eval_cell(
+    cell: Cell, root: Path, results_path: Path, write_lock: threading.Lock
+) -> dict:
+    """Phase 2: tokenize the test slice and compute metrics for one cell."""
     # 2. Tokenize test set (subprocess skips if output exists & overwrite=false).
     subprocess.run(
         ["uv", "run", "eval/tokenize_test.py", f"tokenizer={cell.name}"],
@@ -120,6 +135,10 @@ def main(cfg: DictConfig) -> None:
     results_path = root / cfg.sweep.results_file
     results_path.parent.mkdir(parents=True, exist_ok=True)
 
+    if cfg.sweep.overwrite and results_path.exists():
+        log.info(f"[overwrite] removing {results_path}")
+        results_path.unlink()
+
     # Resolve every cell's paths upfront (single-threaded — compose isn't thread-safe).
     cell_names = [
         f"t_{t}_n1e{n}"
@@ -129,18 +148,35 @@ def main(cfg: DictConfig) -> None:
 
     done = completed_cells(results_path)
     todo = [c for c in cells if c.name not in done]
+    log.info(f"[sweep] {len(done)} done, {len(todo)} todo")
+
+    # Phase 1: train tokenizers in parallel with capped rayon to prevent over-subscription.
+    train_env = {**os.environ, "RAYON_NUM_THREADS": str(cfg.sweep.rayon_num_threads)}
     log.info(
-        f"[sweep] {len(done)} done, {len(todo)} todo, "
-        f"max_workers={cfg.sweep.max_workers}"
+        f"[phase 1] training: train_workers={cfg.sweep.train_workers}, "
+        f"RAYON_NUM_THREADS={cfg.sweep.rayon_num_threads} "
+        f"(≈ {cfg.sweep.train_workers * cfg.sweep.rayon_num_threads} active CPU threads)"
     )
+    with ThreadPoolExecutor(max_workers=cfg.sweep.train_workers) as ex:
+        futures = {ex.submit(train_cell, c, root, train_env): c for c in todo}
+        pbar = tqdm(as_completed(futures), total=len(todo), desc="train", unit="cell")
+        for fut in pbar:
+            cell = futures[fut]
+            try:
+                fut.result()
+            except subprocess.CalledProcessError as e:
+                pbar.write(f"[train fail] {cell.name}: {e.stderr.decode()[:500]}")
+            except Exception as e:
+                pbar.write(f"[train fail] {cell.name}: {e}")
 
+    # Phase 2: tokenize + metrics in parallel (each cell is single-threaded).
+    log.info(f"[phase 2] eval: eval_workers={cfg.sweep.eval_workers}")
     write_lock = threading.Lock()
-
-    with ThreadPoolExecutor(max_workers=cfg.sweep.max_workers) as ex:
+    with ThreadPoolExecutor(max_workers=cfg.sweep.eval_workers) as ex:
         futures = {
-            ex.submit(run_cell, c, root, results_path, write_lock): c for c in todo
+            ex.submit(eval_cell, c, root, results_path, write_lock): c for c in todo
         }
-        pbar = tqdm(as_completed(futures), total=len(todo), desc="sweep", unit="cell")
+        pbar = tqdm(as_completed(futures), total=len(todo), desc="eval", unit="cell")
         for fut in pbar:
             cell = futures[fut]
             try:
@@ -150,9 +186,9 @@ def main(cfg: DictConfig) -> None:
                     f"H_1={r['H_1']:.2f}  eta={r['eta']:.3f}"
                 )
             except subprocess.CalledProcessError as e:
-                pbar.write(f"[fail] {cell.name}: {e.stderr.decode()[:500]}")
+                pbar.write(f"[eval fail] {cell.name}: {e.stderr.decode()[:500]}")
             except Exception as e:
-                pbar.write(f"[fail] {cell.name}: {e}")
+                pbar.write(f"[eval fail] {cell.name}: {e}")
 
 
 if __name__ == "__main__":

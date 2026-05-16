@@ -73,18 +73,23 @@ util = capacity_utilization(ids, vocab_size=16000)
 
 ## Running the full sweep
 
-`run_sweep.py` orchestrates the 5×6 grid (5 transition points × 6 training sizes = 30 cells). Each cell runs stages 2–4 above (data must already be built via stage 1), then appends one row to `results/results.jsonl`, or the path specified in [conf/run_sweep.yaml](conf/run_sweep.yaml).
+`run_sweep.py` orchestrates the 5×6 grid (5 transition points × 6 training sizes = 30 cells) in two phases:
+
+1. **Phase 1 — train all tokenizers in parallel.** Each training subprocess uses the Rust BPE trainer, which is CPU-heavy via rayon. To avoid over-subscription, parallelism is capped by `sweep.train_workers`, and each subprocess gets `RAYON_NUM_THREADS=sweep.rayon_num_threads` cores. The product of the two should roughly equal your CPU core count.
+2. **Phase 2 — tokenize the test slice + compute metrics in parallel.** These steps are single-threaded per cell, so we can run more concurrently — controlled by `sweep.eval_workers`. After each cell, a row is appended to `results/results.jsonl`, or the path specified in [conf/run_sweep.yaml](conf/run_sweep.yaml).
 
 ```bash
-uv run run_sweep.py                              # default: max_workers=2
-uv run run_sweep.py sweep.max_workers=4          # more parallelism
-uv run run_sweep.py sweep.t_values=[0,16000]     # subset of t values
-uv run run_sweep.py sweep.n_exponents=[3,4]      # subset of training sizes
+uv run run_sweep.py                                       # defaults (16-core machine)
+uv run run_sweep.py sweep.overwrite=true                  # delete results.jsonl, start fresh
+uv run run_sweep.py sweep.train_workers=2 sweep.rayon_num_threads=8  # 2×8 = 16 active threads
+uv run run_sweep.py sweep.eval_workers=16                 # more phase-2 parallelism
+uv run run_sweep.py sweep.t_values=[0,16000]              # subset of t values
+uv run run_sweep.py sweep.n_exponents=[3,4]               # subset of training sizes
 ```
 
-The sweep is **idempotent**: re-running it skips cells already in `results.jsonl`, and the train/tokenize substeps skip their work if the cached output files exist. Interrupted sweeps resume cleanly.
+The sweep is **idempotent**: re-running it skips cells already in `results.jsonl`, and the train/tokenize substeps skip their work if the cached output files exist. Interrupted sweeps resume cleanly. Use `sweep.overwrite=true` to force a clean restart.
 
-Increase `max_workers` cautiously — each cell uses all CPU cores internally for BPE training, so high parallelism causes contention and *reduces* throughput. `max_workers=2` is a reasonable default; bump higher only if your cells are mostly small (low `train_chars`).
+**Tuning parallelism.** Defaults assume a 16-core machine: `train_workers=4 × rayon_num_threads=4 = 16` active CPU threads in phase 1. The product should match your core count to saturate without over-subscription. Rayon doesn't scale linearly past ~4–8 threads on this BPE workload (algorithmic bottlenecks), so `4 × 4` typically beats `1 × 16` on total throughput. Phase 2's `eval_workers` can be set higher independently since each eval cell is single-threaded.
 
 ## Configs
 
