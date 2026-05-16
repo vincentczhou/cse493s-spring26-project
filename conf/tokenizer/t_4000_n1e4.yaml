@@ -1,0 +1,7 @@
+defaults:
+  - default
+  - _self_
+
+t: 4000
+train_chars: 1e4
+output_file: t4000_n1e4.json

@@ -5,4 +5,4 @@ defaults:
 
 hydra:
   run:
-    dir: outputs/train_tokenizer/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: outputs/train_tokenizer/${hydra.runtime.choices.tokenizer}/${now:%Y-%m-%d_%H-%M-%S}

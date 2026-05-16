@@ -9,4 +9,4 @@ eval:
 
 hydra:
   run:
-    dir: outputs/tokenize_test/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: outputs/tokenize_test/${hydra.runtime.choices.tokenizer}/${now:%Y-%m-%d_%H-%M-%S}
