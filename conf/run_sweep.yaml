@@ -18,4 +18,4 @@ sweep:
 
 hydra:
   run:
-    dir: outputs/run_sweep/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: outputs/run_sweep/${now:%Y-%m-%d_%H-%M-%S}
