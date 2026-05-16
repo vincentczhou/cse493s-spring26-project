@@ -73,7 +73,7 @@ util = capacity_utilization(ids, vocab_size=16000)
 
 ## Running the full sweep
 
-`run_sweep.py` orchestrates the 5×6 grid (5 transition points × 6 training sizes = 30 cells). Each cell runs the three stages above, then appends one row to `results/results.jsonl`, or the path specified in [conf/run_sweep.yaml](conf/run_sweep.yaml).
+`run_sweep.py` orchestrates the 5×6 grid (5 transition points × 6 training sizes = 30 cells). Each cell runs stages 2–4 above (data must already be built via stage 1), then appends one row to `results/results.jsonl`, or the path specified in [conf/run_sweep.yaml](conf/run_sweep.yaml).
 
 ```bash
 uv run run_sweep.py                              # default: max_workers=2
