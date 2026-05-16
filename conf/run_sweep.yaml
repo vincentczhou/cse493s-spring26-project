@@ -1,0 +1,12 @@
+sweep:
+  # Grid (cross product). Each pair (t, n) maps to a config conf/tokenizer/t_<t>_n1e<n>.yaml.
+  t_values: [0, 4000, 8000, 12000, 16000]
+  n_exponents: [3, 4, 5, 6, 7, 8]
+
+  results_file: results/results.jsonl
+  # Parallel cells. Each cell uses all cores internally, so keep low.
+  max_workers: 2
+
+hydra:
+  run:
+    dir: outputs/run_sweep/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
