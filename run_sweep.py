@@ -52,6 +52,7 @@ class Cell:
     t: int
     vocab_size: int
     train_chars: int
+    test_chars: int
 
 
 def resolve_cell(name: str, root: Path) -> Cell:
@@ -66,6 +67,7 @@ def resolve_cell(name: str, root: Path) -> Cell:
         t=int(cfg.tokenizer.t),
         vocab_size=int(cfg.tokenizer.vocab_size),
         train_chars=int(float(cfg.tokenizer.train_chars)),
+        test_chars=int(float(cfg.data.test_chars)),
     )
 
 
@@ -103,6 +105,7 @@ def eval_cell(
         "cell": cell.name,
         "t": cell.t,
         "train_chars": cell.train_chars,
+        "test_chars": cell.test_chars,
         "vocab_size": cell.vocab_size,
         "n_tokens": int(len(token_ids)),
         "compression_ratio": cr,
