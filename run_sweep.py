@@ -104,6 +104,7 @@ def eval_cell(
         "t": cell.t,
         "train_chars": cell.train_chars,
         "vocab_size": cell.vocab_size,
+        "n_tokens": int(len(token_ids)),
         "compression_ratio": cr,
         **hk,
         **cap,
