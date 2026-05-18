@@ -20,6 +20,9 @@ git submodule update --init --recursive
 
 # Install dependencies (builds the SuperBPE tokenizers fork)
 uv sync
+
+# Register the pre-commit hook (dev only)
+uv run pre-commit install
 ```
 
 ## Running individual stages
