@@ -100,6 +100,9 @@ def cross_boundary_token_fraction(token_ids: np.ndarray, tokenizer_path: Path) -
     any later position means the token crosses a word boundary — a phase-2-only
     artifact. This fraction goes to 0 as t → vocab_size (all phase 1).
     """
+    # Note: this also counts pure-whitespace tokens like ĠĠ (consecutive spaces),
+    # which are valid phase-1 merges within a whitespace-only pretokenizer chunk.
+    # These are rare and negligible in practice.
     tok = Tokenizer.from_file(str(tokenizer_path))
     vocab = tok.get_vocab()  # {token_str: id}
     is_cross = np.zeros(tok.get_vocab_size(), dtype=bool)
