@@ -1,5 +1,5 @@
 defaults:
-  - defaults
+  - default
   - _self_
 
 # OLMo 2 stage-2 (Dolmino) pretraining mix, UW-prepared "p99 truncate" subset,
