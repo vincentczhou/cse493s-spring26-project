@@ -1,0 +1,28 @@
+# Default template; ??? = required field with no default value, to be filled in by each dataset's config
+
+# We stream documents from the dataset, concatenate them with `doc_separator`, and
+# write the first `train_chars` characters of the train split as the
+# training stream and the first `test_chars` characters of the validation
+# split as the held-out test stream.
+
+# `datasets.load_dataset()` kwargs
+path: ???         # HF dataset id
+name: ???         # HF "config" / subset
+train_split: train
+test_split: validation
+
+# Stream sizes
+train_chars: 1e8
+test_chars: 1e7
+
+# Document filtering and joining (apply to every dataset).
+min_doc_chars: 20
+doc_separator: "\n"
+
+# Output paths
+output_dir: _data
+train_file: ???
+test_file: ???
+
+# Whether to regenerate output files (train_file, test_file)
+overwrite: false

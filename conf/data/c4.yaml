@@ -1,27 +1,21 @@
+defaults:
+  - defaults
+  - _self_
+
 # C4 English single-stream prep, per PLAN.md §3.
-#
-# We stream documents from C4, concatenate them with `doc_separator`, and
-# write the first `train_chars` characters of the train split as the
+# Streams documents from C4, concatenates them with `doc_separator`,
+# writes the first `train_chars` characters of the train split as the
 # training stream and the first `test_chars` characters of the validation
 # split as the held-out test stream.
 
-# `datasets.load_dataset()` kwargs
-path: allenai/c4   # HF dataset id
-name: en           # HF "config" / subset
-train_split: train
-test_split: validation
+path: allenai/c4
+name: en
 
 train_chars: 1e8  # 10^8 (largest training prefix in PLAN.md §6 sweep)
 test_chars: 1e7   # 10^7 (held-out 10M-char test slice, Erdogan §IV)
 
-min_doc_chars: 20
-doc_separator: "\n"
-
-output_dir: _data
 # Interpolate name/split so the filename tracks config changes.
 # Char counts are hardcoded as readable strings (1e8/1e7) rather than
 # interpolated from the float fields, which would render as 100000000.0.
 train_file: c4_${data.name}_${data.train_split}_1e8.txt
 test_file: c4_${data.name}_${data.test_split}_1e7.txt
-
-overwrite: false
