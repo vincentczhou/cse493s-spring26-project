@@ -1,7 +1,0 @@
-defaults:
-  - default
-  - _self_
-
-t: 4000
-train_chars: 1e6
-output_file: t4000_n1e6.json
