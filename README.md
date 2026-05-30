@@ -71,16 +71,18 @@ uv run eval/tokenize_test.py experiment=c4_16k \
 
 ### 4. Compute metrics
 
-`eval/metrics.py` is a library (not a CLI). It exposes three functions that take a cached token-id array:
+`eval/metrics.py` is a library (not a CLI). It exposes four functions that take a cached token-id array:
 
 ```python
-from eval.metrics import compression_ratio, kgram_entropy, capacity_utilization
+from eval.metrics import compression_ratio, kgram_entropy, capacity_utilization, cross_boundary_token_fraction
 import numpy as np
+from pathlib import Path
 
 ids = np.load("_test_streams/c4_16k/t8000_n1e5.npy")
-cr = compression_ratio(Path("_data/c4_en_validation_1e7.txt"), ids)
-H1..H5 = [kgram_entropy(ids, k) for k in range(1, 6)]
+cr   = compression_ratio(Path("_data/c4_en_validation_1e7.txt"), ids)
+H1_5 = [kgram_entropy(ids, k) for k in range(1, 6)]
 util = capacity_utilization(ids, vocab_size=16000)
+cb   = cross_boundary_token_fraction(ids, Path("_tokenizers/c4_16k/t8000_n1e5.json"))
 ```
 
 `run_sweep.py` calls these directly, so you usually don't invoke them by hand.

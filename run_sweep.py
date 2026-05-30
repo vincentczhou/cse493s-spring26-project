@@ -43,7 +43,12 @@ import numpy as np
 from omegaconf import DictConfig
 from tqdm import tqdm
 
-from eval.metrics import capacity_utilization, compression_ratio, kgram_entropy
+from eval.metrics import (
+    capacity_utilization,
+    compression_ratio,
+    cross_boundary_token_fraction,
+    kgram_entropy,
+)
 
 log = logging.getLogger(__name__)
 
@@ -55,6 +60,7 @@ class Cell:
     name: str
     experiment_name: str
     tokenizer_file: str
+    tokenizer_path: Path
     npy_path: Path
     test_path: Path
     t: int
@@ -75,6 +81,7 @@ class Cell:
 def build_cells(cfg: DictConfig, root: Path) -> list[Cell]:
     """Cross-product the experiment's sweep_grid into Cell objects."""
     grid = cfg.experiment.sweep_grid
+    tokenizers_dir = root / cfg.tokenizer.output_dir
     streams_dir = root / cfg.experiment.streams_dir
     test_path = root / cfg.data.output_dir / cfg.data.test_file
     vocab_size = int(cfg.experiment.vocab_size)
@@ -91,6 +98,7 @@ def build_cells(cfg: DictConfig, root: Path) -> list[Cell]:
                 name=name,
                 experiment_name=cfg.experiment.name,
                 tokenizer_file=tok_file,
+                tokenizer_path=tokenizers_dir / tok_file,
                 npy_path=streams_dir / f"{name}.npy",
                 test_path=test_path,
                 t=t,
@@ -134,6 +142,7 @@ def eval_cell(
     cr = compression_ratio(cell.test_path, token_ids)
     hk = {f"H_{k}": kgram_entropy(token_ids, k) for k in range(1, 6)}
     cap = capacity_utilization(token_ids, vocab_size=cell.vocab_size)
+    cb = cross_boundary_token_fraction(token_ids, cell.tokenizer_path)
 
     result = {
         "cell": cell.name,
@@ -145,6 +154,7 @@ def eval_cell(
         "compression_ratio": cr,
         **hk,
         **cap,
+        "cross_boundary_frac": cb,
     }
 
     with write_lock, results_path.open("a") as f:
