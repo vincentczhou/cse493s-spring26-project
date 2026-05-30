@@ -1,0 +1,22 @@
+# @package _global_
+
+defaults:
+  - default
+  - /data: olmo
+  - _self_
+
+# Same as olmo_200k but with a 10x larger test set (1e8 chars), to check whether
+# the H_2 dip at high compression is a finite-sample estimator artifact. Reuses
+# the already-trained olmo_200k tokenizers (test size doesn't affect training).
+experiment:
+  name: olmo_200k_1e8
+  vocab_size: 200000
+  tokenizers_dir: _tokenizers/olmo_200k   # reuse trained tokenizers — nothing retrains
+  sweep_grid:
+    t: [0, 20000, 40000, 60000, 80000, 100000, 120000, 140000, 160000, 180000, 200000]
+    train_chars: [1000, 10000, 100000, 1000000, 10000000, 100000000]
+
+# Bump the test slice from 1e7 to 1e8 to reduce bigram-context sparsity.
+data:
+  test_chars: 1e8
+  test_file: olmo_${data.test_split}_1e8.txt
