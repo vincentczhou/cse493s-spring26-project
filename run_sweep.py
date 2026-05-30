@@ -1,10 +1,13 @@
-"""Run the grid sweep over (transition_point, train_chars) cells.
+"""Run the grid sweep for the selected experiment.
+
+The active experiment (conf/experiment/<name>.yaml) defines the data source,
+vocab size, and the sweep grid. Each cell is one (t, train_chars) point.
 
 For each cell:
   1. Train tokenizer  (subprocess: train/train_tokenizer.py)
   2. Tokenize test    (subprocess: eval/tokenize_test.py)
   3. Compute metrics  (in-process: eval.metrics functions)
-  4. Append row to results.jsonl
+  4. Append row to the experiment's results file
 
 This is done in two phases:
   Phase 1: train all tokenizers in parallel. Each training subprocess is CPU-heavy
@@ -13,16 +16,21 @@ This is done in two phases:
            of parallel subprocesses by sweep.train_workers.
   Phase 2: tokenize the test slice + compute metrics in parallel. These steps are
            single-threaded, so we can run more cells concurrently here.
-           After each cell, append one row to results.jsonl.
+           After each cell, append one row to the results file.
 
-Re-running the sweep is idempotent — cells already in results.jsonl are skipped in
-phase 2 (phase 1 will rely on tokenizer.overwrite=false). The train/tokenize subprocesses skip when their output files exist
-(overwrite=false). Set sweep.overwrite=true to start fresh. Partial sweeps resume cleanly.
+Re-running the sweep is idempotent — cells already in the results file are skipped
+in phase 2, and the train/tokenize subprocesses skip when their output files exist
+(overwrite=false). Set sweep.overwrite=true to start fresh. Partial sweeps resume
+cleanly.
+
+  uv run run_sweep.py                       # default experiment (c4_16k)
+  uv run run_sweep.py experiment=olmo_200k  # switch experiment
 """
 
 import itertools
 import json
 import logging
+import math
 import os
 import subprocess
 import threading
@@ -32,7 +40,6 @@ from pathlib import Path
 
 import hydra
 import numpy as np
-from hydra import compose
 from omegaconf import DictConfig
 from tqdm import tqdm
 
@@ -43,10 +50,11 @@ log = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class Cell:
-    """All paths and metadata for one (tokenizer, train_size) cell, resolved from its config."""
+    """All paths and metadata for one (t, train_size) cell of the sweep."""
 
     name: str
-    tokenizer_path: Path
+    experiment_name: str
+    tokenizer_file: str
     npy_path: Path
     test_path: Path
     t: int
@@ -54,28 +62,51 @@ class Cell:
     train_chars: int
     test_chars: int
 
+    def overrides(self) -> list[str]:
+        """Hydra CLI overrides that pin a subprocess to this cell."""
+        return [
+            f"experiment={self.experiment_name}",
+            f"tokenizer.t={self.t}",
+            f"tokenizer.train_chars={self.train_chars}",
+            f"tokenizer.output_file={self.tokenizer_file}",
+        ]
 
-def resolve_cell(name: str, root: Path) -> Cell:
-    """Compose conf/tokenize_test.yaml with tokenizer=<name> to derive paths + values."""
-    cfg = compose(config_name="tokenize_test", overrides=[f"tokenizer={name}"])
-    tok_file = cfg.tokenizer.output_file
-    return Cell(
-        name=name,
-        tokenizer_path=root / cfg.tokenizer.output_dir / tok_file,
-        npy_path=root / cfg.eval.output_dir / Path(tok_file).with_suffix(".npy").name,
-        test_path=root / cfg.data.output_dir / cfg.data.test_file,
-        t=int(cfg.tokenizer.t),
-        vocab_size=int(cfg.tokenizer.vocab_size),
-        train_chars=int(float(cfg.tokenizer.train_chars)),
-        test_chars=int(float(cfg.data.test_chars)),
-    )
+
+def build_cells(cfg: DictConfig, root: Path) -> list[Cell]:
+    """Cross-product the experiment's sweep_grid into Cell objects."""
+    grid = cfg.experiment.sweep_grid
+    streams_dir = root / cfg.experiment.streams_dir
+    test_path = root / cfg.data.output_dir / cfg.data.test_file
+    vocab_size = int(cfg.experiment.vocab_size)
+    test_chars = int(float(cfg.data.test_chars))
+
+    cells = []
+    for t, train_chars in itertools.product(grid.t, grid.train_chars):
+        t = int(t)
+        train_chars = int(float(train_chars))
+        name = f"t{t}_n1e{int(round(math.log10(train_chars)))}"
+        tok_file = f"{name}.json"
+        cells.append(
+            Cell(
+                name=name,
+                experiment_name=cfg.experiment.name,
+                tokenizer_file=tok_file,
+                npy_path=streams_dir / f"{name}.npy",
+                test_path=test_path,
+                t=t,
+                vocab_size=vocab_size,
+                train_chars=train_chars,
+                test_chars=test_chars,
+            )
+        )
+    return cells
 
 
 def train_cell(cell: Cell, root: Path, env: dict) -> None:
     """Phase 1: train one tokenizer (subprocess skips if cached)."""
     # 1. Train tokenizer (subprocess skips if output exists & overwrite=false).
     subprocess.run(
-        ["uv", "run", "train/train_tokenizer.py", f"tokenizer={cell.name}"],
+        ["uv", "run", "train/train_tokenizer.py", *cell.overrides()],
         cwd=root,
         check=True,
         capture_output=True,
@@ -84,12 +115,15 @@ def train_cell(cell: Cell, root: Path, env: dict) -> None:
 
 
 def eval_cell(
-    cell: Cell, root: Path, results_path: Path, write_lock: threading.Lock
+    cell: Cell,
+    root: Path,
+    results_path: Path,
+    write_lock: threading.Lock,
 ) -> dict:
     """Phase 2: tokenize the test slice and compute metrics for one cell."""
     # 2. Tokenize test set (subprocess skips if output exists & overwrite=false).
     subprocess.run(
-        ["uv", "run", "eval/tokenize_test.py", f"tokenizer={cell.name}"],
+        ["uv", "run", "eval/tokenize_test.py", *cell.overrides()],
         cwd=root,
         check=True,
         capture_output=True,
@@ -119,7 +153,7 @@ def eval_cell(
 
 
 def completed_cells(results_path: Path) -> set[str]:
-    """Cell names already present in results.jsonl."""
+    """Cell names already present in the results file."""
     if not results_path.exists():
         return set()
     done = set()
@@ -136,23 +170,19 @@ def completed_cells(results_path: Path) -> set[str]:
 def main(cfg: DictConfig) -> None:
     # Hydra leaves cwd unchanged by default (hydra.job.chdir=False), so Path.cwd() is the project root.
     root = Path.cwd()
-    results_path = root / cfg.sweep.results_file
+    results_path = root / cfg.experiment.results_file
     results_path.parent.mkdir(parents=True, exist_ok=True)
 
     if cfg.sweep.overwrite and results_path.exists():
         log.info(f"[overwrite] removing {results_path}")
         results_path.unlink()
 
-    # Resolve every cell's paths upfront (single-threaded — compose isn't thread-safe).
-    cell_names = [
-        f"t_{t}_n1e{n}"
-        for t, n in itertools.product(cfg.sweep.t_values, cfg.sweep.n_exponents)
-    ]
-    cells = [resolve_cell(name, root) for name in cell_names]
-
+    cells = build_cells(cfg, root)
     done = completed_cells(results_path)
     todo = [c for c in cells if c.name not in done]
-    log.info(f"[sweep] {len(done)} done, {len(todo)} todo")
+    log.info(
+        f"[sweep] experiment={cfg.experiment.name}: {len(done)} done, {len(todo)} todo"
+    )
 
     # Phase 1: train tokenizers in parallel with capped rayon to prevent over-subscription.
     train_env = {**os.environ, "RAYON_NUM_THREADS": str(cfg.sweep.rayon_num_threads)}
