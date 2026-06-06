@@ -1,6 +1,7 @@
 # CSE 493S Spring 2026 Project
 
-Extends the information-theoretic tokenizer analysis of Erdogan et al. (2026) to SuperBPE (Liu et al. 2025), with an ablation over SuperBPE's phase-2 vocabulary budget. See `PLAN.md` for the full methodology and `PROPOSAL.md` for the project proposal.
+Extends the information-theoretic tokenizer analysis of Erdogan et al. (2026) to SuperBPE (Liu et al. 2025), with an ablation over SuperBPE's phase-2 vocabulary budget. 
+<!-- See `PLAN.md` for the full methodology and `PROPOSAL.md` for the project proposal. -->
 
 ## Requirements
 
@@ -30,10 +31,10 @@ uv run pre-commit install
 The pipeline is parameterized by an **experiment**, which bundles a dataset, vocab size,
 sweep grid, and output paths. Two are defined (see [conf/experiment/](conf/experiment/)):
 
-| Experiment   | Dataset                         | Vocab  | Transition points `t`                |
-|--------------|---------------------------------|--------|--------------------------------------|
-| `c4_16k`     | C4 English (`allenai/c4`)       | 16k    | 0, 4k, 8k, 12k, 16k (steps of 4k)    |
-| `olmo_200k`  | OLMo 2 mix (`UW/olmo-mix-...`)  | 200k   | 0, 20k, 40k, …, 200k (steps of 20k)  |
+| Experiment  | Dataset                        | Vocab | Transition points `t`               |
+| ----------- | ------------------------------ | ----- | ----------------------------------- |
+| `c4_16k`    | C4 English (`allenai/c4`)      | 16k   | 0, 4k, 8k, 12k, 16k (steps of 4k)   |
+| `olmo_200k` | OLMo 2 mix (`UW/olmo-mix-...`) | 200k  | 0, 20k, 40k, …, 200k (steps of 20k) |
 
 Every command below takes an `experiment=` selector. There is no usable default — running
 without one errors loudly on purpose, to force an explicit choice.
