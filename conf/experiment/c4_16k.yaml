@@ -1,0 +1,17 @@
+# @package _global_
+
+defaults:
+  - default
+  - /data: c4
+  - _self_
+
+# Reproduction of Erdogan et al. (2026) Fig 2/4/8 setup, extended with a
+# SuperBPE transition-point ablation. C4 English, vocab size 16k, sweep over
+# (t, train_chars).
+experiment:
+  name: c4_16k
+  vocab_size: 16000
+  sweep_grid:
+    t: [0, 4000, 8000, 12000, 16000]
+    # 1e3 to 1e8 on a log scale; 1e8 is the full c4 train size specified in that config
+    train_chars: [1000, 10000, 100000, 1000000, 10000000, 100000000]

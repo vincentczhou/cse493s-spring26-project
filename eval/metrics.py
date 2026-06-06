@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 from nltk.util import ngrams
 from scipy.stats import entropy
+from tokenizers import Tokenizer
 
 
 def compression_ratio(test_path: Path, token_ids: np.ndarray) -> float:
@@ -89,3 +90,23 @@ def capacity_utilization(token_ids: np.ndarray, vocab_size: int) -> dict[str, fl
         "eta": h1 / log2_vocab,
         "eta_2": h_renyi / log2_vocab,
     }
+
+
+def cross_boundary_token_fraction(token_ids: np.ndarray, tokenizer_path: Path) -> float:
+    """Fraction of tokens in the stream that contain a space not at position 0.
+
+    In byte-level BPE, space is encoded as 'Ġ'. Standard phase-1 merges respect
+    whitespace boundaries, so Ġ can only appear at position 0 of a token. A Ġ at
+    any later position means the token crosses a word boundary — a phase-2-only
+    artifact. This fraction goes to 0 as t → vocab_size (all phase 1).
+    """
+    # Note: this also counts pure-whitespace tokens like ĠĠ (consecutive spaces),
+    # which are valid phase-1 merges within a whitespace-only pretokenizer chunk.
+    # These are rare and negligible in practice.
+    tok = Tokenizer.from_file(str(tokenizer_path))
+    vocab = tok.get_vocab()  # {token_str: id}
+    is_cross = np.zeros(tok.get_vocab_size(), dtype=bool)
+    for token_str, idx in vocab.items():
+        if "Ġ" in token_str[1:]:
+            is_cross[idx] = True
+    return float(is_cross[token_ids].sum()) / len(token_ids)

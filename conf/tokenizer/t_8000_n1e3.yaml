@@ -1,7 +1,0 @@
-defaults:
-  - default
-  - _self_
-
-t: 8000
-train_chars: 1e3
-output_file: t8000_n1e3.json

@@ -1,7 +1,7 @@
 defaults:
-  - data: default
+  - experiment: default
   - _self_
 
 hydra:
   run:
-    dir: outputs/data/${hydra.runtime.choices.data}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: outputs/${experiment.name}/data/${now:%Y-%m-%d_%H-%M-%S}

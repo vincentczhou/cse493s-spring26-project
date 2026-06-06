@@ -1,0 +1,15 @@
+# @package _global_
+
+defaults:
+  - default
+  - /data: olmo
+  - _self_
+
+# OLMo 2 pretraining mix, vocab size 200k. Finer-grained transition-point sweep
+# than c4_16k: t in steps of 20k (t/vocab ratios 0, 0.1, 0.2, ..., 1.0).
+experiment:
+  name: olmo_200k
+  vocab_size: 200000
+  sweep_grid:
+    t: [0, 20000, 40000, 60000, 80000, 100000, 120000, 140000, 160000, 180000, 200000]
+    train_chars: [1000, 10000, 100000, 1000000, 10000000, 100000000]

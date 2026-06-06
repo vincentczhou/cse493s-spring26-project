@@ -1,12 +1,7 @@
 defaults:
-  - data: default
-  - tokenizer: default
+  - experiment: default
   - _self_
-
-eval:
-  output_dir: _test_streams
-  overwrite: false
 
 hydra:
   run:
-    dir: outputs/tokenize_test/${hydra.runtime.choices.tokenizer}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: outputs/${experiment.name}/tokenize_test/${now:%Y-%m-%d_%H-%M-%S}

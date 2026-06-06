@@ -1,0 +1,18 @@
+defaults:
+  - default
+  - _self_
+
+# OLMo 2 stage-2 (Dolmino) pretraining mix, UW-prepared "p99 truncate" subset,
+# per SuperBPE paper §2.3 (https://huggingface.co/datasets/UW/olmo-mix-1124-subset-p99).
+# This is the dataset the SuperBPE authors actually trained their tokenizers on.
+# Note: hosted as raw txt files; data.py may need adjustments to consume it
+# directly rather than via `load_dataset` streaming. See superbpe/README.md.
+path: UW/olmo-mix-1124-subset-p99
+name: default                # only config available on this dataset
+test_split: test             # dataset has train/test (not train/validation like c4)
+
+train_chars: 1e8             # parallel with c4 — sweep grid goes up to 1e8 anyway
+test_chars: 1e7
+
+train_file: olmo_${data.train_split}_1e8.txt
+test_file: olmo_${data.test_split}_1e7.txt
